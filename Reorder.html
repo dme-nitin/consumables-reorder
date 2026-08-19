@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reorder Console</title>
+<style>
+  :root{
+    --navy:#0e2a47; --navy-2:#143b63; --teal:#0f8a7e; --teal-soft:#e6f4f2;
+    --amber:#c77d11; --red:#b23a3a; --ink:#1b2733; --muted:#67788a;
+    --line:#dde5ec; --bg:#f5f8fb; --card:#ffffff; --up:#0f8a7e; --down:#b23a3a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+  .mode-note{background:#fff8e6;border-bottom:1px solid #f0e0b0;color:#7a5c00;padding:8px 22px;font-size:12px;text-align:center}
+  header{background:linear-gradient(100deg,var(--navy),var(--navy-2));color:#fff;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  header h1{font-size:17px;margin:0;font-weight:600;letter-spacing:.2px}
+  header .sub{font-size:12px;opacity:.75;margin-top:2px}
+  .badge{background:rgba(255,255,255,.14);padding:3px 9px;border-radius:20px;font-size:11px}
+  .wrap{padding:18px 22px;max-width:1360px;margin:0 auto}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .toolbar input,.toolbar select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:#fff}
+  .toolbar input{min-width:220px}
+  .stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px;min-width:130px}
+  .stat.clickable{cursor:pointer;transition:.15s}
+  .stat.clickable:hover{border-color:var(--teal);box-shadow:0 2px 8px rgba(15,138,126,.15)}
+  .stat .n{font-size:22px;font-weight:700;color:var(--navy)}
+  .stat.due .n{color:var(--red)}
+  .stat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  th{background:#eef3f8;text-align:left;padding:10px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr.due{background:#fdf6f2}
+  .prod{font-weight:600;color:var(--navy)}
+  .cust{font-weight:600}
+  .meta{font-size:11px;color:var(--muted)}
+  .pill{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-right:4px}
+  .pill.due{background:#fbe4de;color:var(--red)}
+  .pill.ok{background:var(--teal-soft);color:var(--teal)}
+  .pill.status{background:#eef3f8;color:var(--muted)}
+  .pill.flag{background:#fff3d6;color:var(--amber)}
+  .trend{display:flex;align-items:center;gap:8px}
+  .arrow{font-weight:700}
+  .arrow.up{color:var(--up)} .arrow.down{color:var(--down)} .arrow.flat{color:var(--muted)}
+  .remark{max-width:260px;font-size:12px;color:#3a4a5a;line-height:1.35;cursor:pointer}
+  .remark .preview{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .remark .next{color:var(--muted);font-size:11px;margin-top:3px}
+  .btns{display:flex;gap:6px;flex-wrap:wrap}
+  button{cursor:pointer;border:none;border-radius:7px;font-size:12px;font-weight:600;padding:7px 10px;transition:.15s}
+  .b-remark{background:#eef3f8;color:var(--navy)}
+  .b-email{background:var(--teal);color:#fff}
+  button:hover{opacity:.88}
+  .empty{padding:40px;text-align:center;color:var(--muted)}
+  .modal-bg{position:fixed;inset:0;background:rgba(14,42,71,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+  .modal-bg.on{display:flex}
+  .modal{background:#fff;border-radius:12px;width:100%;max-width:520px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.25);max-height:88vh;overflow:auto}
+  .modal h3{margin:0 0 4px;color:var(--navy)}
+  .modal .ctx{font-size:12px;color:var(--muted);margin-bottom:14px}
+  .modal label{display:block;font-size:12px;font-weight:600;color:var(--ink);margin:10px 0 4px}
+  .modal textarea,.modal input,.modal select{width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit}
+  .modal textarea{min-height:60px;resize:vertical}
+  .history{background:#f7f9fb;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;line-height:1.6;max-height:220px;overflow:auto;color:#3a4a5a}
+  .history .entry{padding:3px 0;border-bottom:1px dashed var(--line)}
+  .history .entry:last-child{border-bottom:none}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+  .b-cancel{background:#eef3f8;color:var(--muted)}
+  .b-save{background:var(--teal);color:#fff}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:11px 18px;border-radius:8px;font-size:13px;opacity:0;transition:.25s;z-index:60;pointer-events:none}
+  .toast.on{opacity:1}
+  .spark{vertical-align:middle}
+</style>
+</head>
+<body>
+<div class="mode-note" id="modeNote">Loading...</div>
+<header>
+  <div>
+    <h1>Consumables Reorder Console</h1>
+    <div class="sub">Global Medicare &middot; GI / Hepatology &middot; Live from your "Main" sheet</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="badge" id="stamp"></div>
+    <button id="refreshBtn" onclick="manualRefresh()" style="background:rgba(255,255,255,.16);color:#fff;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px">&#8635; Refresh</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="stat-row" id="statsProducts"></div>
+  <div class="stat-row" id="statsGeneral"></div>
+  <div class="toolbar">
+    <input id="search" placeholder="Search customer / doctor / city / product..." oninput="render()">
+    <select id="fProduct" onchange="render()"><option value="">All products</option></select>
+    <select id="fRSM" onchange="render()"><option value="">All follow-up owners</option></select>
+    <select id="fDue" onchange="render()">
+      <option value="">All statuses</option>
+      <option value="due">Reorder due</option>
+      <option value="ok">Stocked</option>
+    </select>
+  </div>
+  <div id="tableHost"></div>
+</div>
+
+<div class="modal-bg" id="remarkModal">
+  <div class="modal">
+    <h3>Follow-up remark</h3>
+    <div class="ctx" id="remarkCtx"></div>
+    <label>Remark history</label>
+    <div class="history" id="rHistory"></div>
+    <label>Add new note</label>
+    <textarea id="rNote" placeholder="e.g. dispatched 100 kits on ..."></textarea>
+    <label>Next follow-up date</label>
+    <input id="rDate" type="date">
+    <div class="modal-actions">
+      <button class="b-cancel" onclick="closeModal()">Cancel</button>
+      <button class="b-save" onclick="saveRemark()">Save note</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="emailModal">
+  <div class="modal">
+    <h3>Log email as sent</h3>
+    <div class="ctx" id="emCtx"></div>
+    <p style="font-size:13px;color:#3a4a5a;line-height:1.5">This will stamp today's date/time in the sheet's <b>Email Timestamp</b> column. <b>No real email is dispatched</b> &mdash; actual sending stays whatever process you already use.</p>
+    <div class="modal-actions">
+      <button class="b-cancel" onclick="closeEmail()">Cancel</button>
+      <button class="b-save" onclick="confirmSend()">Log as sent</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="monthsModal">
+  <div class="modal">
+    <h3>Months tracked</h3>
+    <div class="ctx" id="monthsCtx"></div>
+    <div class="history" id="monthsList"></div>
+    <div class="modal-actions">
+      <button class="b-cancel" onclick="closeMonthsModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ==========================================================
+//  CONFIG &mdash; paste your Apps Script Web App URL here
+// ==========================================================
+const CONFIG = {
+  API_URL: 'https://script.google.com/macros/s/AKfycbzAJe5CUvXv3ImjHv8Dvm7cuT0qEudpTHKgXqJyOe1kpSGnXMPx7xLD_fyTjgjILiuOgg/exec'
+};
+
+let MONTHS=[], ROWS=[];
+const LIVE = !!CONFIG.API_URL;
+
+// ---- MOCK DATA (fallback preview when CONFIG.API_URL is empty) ----
+const MOCK_MONTHS=['Mar-2026','Apr-2026','May-2026','Jun-2026','Jul-2026','Aug-2026'];
+let MOCK_ROWS=[
+  {rowId:5,customer:'DR. VEENU JAMWAL - Jammu/ Shamshree Healthcare',contactPerson:'Mr. Faizan (Technician)',contactNo:'9469139860',doctorName:'Dr. Vijant Singh Chandail',doctorContactNo:'',city:'Jammu',rsm:'Manisha',productCode:'ABT KIT',product:'ABT KIT',series:[500,150,900,699,0,0],email:'vijant.chandail@yahoo.co.in',reorderPoint:500,lastRemark:'13/08 not answering // 06/08 not answering // 31/07 not answering',nextFollowupDate:'16/08/2026',status:'',flagStatus:'',currentRate:'700',oldRate:'600',lastEmailTimestamp:''},
+  {rowId:6,customer:'Bismillah Medical, Srinagar',contactPerson:'Technician - Ms. Zahida',contactNo:'9596010760',doctorName:'Dr. Shaukat Zargar',doctorContactNo:'9419003124',city:'Srinagar',rsm:'Manisha',productCode:'ABT KIT',product:'ABT KIT',series:[0,0,0,0,0,150],email:'showkatzargar6@gmail.com',reorderPoint:null,lastRemark:'10/08 will call next week // 04/08 will call after 10 days',nextFollowupDate:'13/08/2026',status:'',flagStatus:'Flag',currentRate:'630',oldRate:'600',lastEmailTimestamp:'20-May-2026 14:48'},
+  {rowId:198,customer:'Inderprastha Apollo, New Delhi',contactPerson:'Adhikari Technician Ramesh',contactNo:'9876541321',doctorName:'Dr. Sanjay Sikka',doctorContactNo:'',city:'New Delhi',rsm:'Manisha',productCode:'Capsule Endoscopy',product:'Capsule Endoscopy',series:[0,0,0,0,0,2],email:'chamoliapollo@gmail.com',reorderPoint:40,lastRemark:'11/08 no requirement // 04/08 dispatched 2 capsules',nextFollowupDate:'14/08/2026',status:'',flagStatus:'',currentRate:'28000',oldRate:'',lastEmailTimestamp:''}
+];
+
+// ---- DATA LOADING ----
+async function loadData(){
+  const note=document.getElementById('modeNote');
+  if(!LIVE){
+    MONTHS=MOCK_MONTHS; ROWS=MOCK_ROWS;
+    note.textContent='[Preview] Preview with sample data &middot; no backend connected (CONFIG.API_URL is empty).';
+    buildFilters();render();
+    return;
+  }
+  note.textContent='[Loading] Loading data from your Main sheet...';
+  try{
+    const res=await fetch(CONFIG.API_URL+'?action=dashboard');
+    const data=await res.json();
+    if(data.error) throw new Error(data.error);
+    MONTHS=data.months; ROWS=data.rows;
+    note.textContent='[Live] Live &middot; reading straight from your "Main" sheet &middot; saving a note updates Remarks/Next Followup &middot; "Log as sent" stamps Email Timestamp only (no real email sent).';
+    buildFilters();render();
+  }catch(err){
+    note.textContent='[!] Could not load from the sheet ('+err.message+'). Falling back to sample data.';
+    MONTHS=MOCK_MONTHS; ROWS=MOCK_ROWS;
+    buildFilters();render();
+  }
+}
+
+async function postToBackend(payload){
+  if(!LIVE) return {ok:true, preview:true};
+  const res=await fetch(CONFIG.API_URL,{
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(payload)
+  });
+  return res.json();
+}
+
+function avg(a){return a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):0}
+function trendDir(s){const r=(s.slice(-2).reduce((a,b)=>a+b,0)/2);const b=(s.slice(0,-2).reduce((a,b)=>a+b,0)/(s.length-2));if(!b)return'flat';if(r>b*1.08)return'up';if(r<b*0.92)return'down';return'flat'}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function fmtNum(n){return Number(n||0).toLocaleString('en-IN')}
+
+function enrich(r){
+  const latest=r.series[r.series.length-1];
+  const a=avg(r.series);
+  const hasRP = r.reorderPoint!==null && r.reorderPoint!==undefined && r.reorderPoint!=='';
+  const reorderDue = hasRP && (latest<=r.reorderPoint || a<=r.reorderPoint);
+  return Object.assign({},r,{latest,avg:a,trend:trendDir(r.series),reorderDue,hasRP});
+}
+
+function sparkline(series){
+  const w=90,h=26,max=Math.max(...series,1),min=Math.min(...series,0),rng=(max-min)||1;
+  const pts=series.map((v,i)=>{const x=(i/(series.length-1||1))*w;const y=h-((v-min)/rng)*(h-4)-2;return x.toFixed(1)+','+y.toFixed(1)}).join(' ');
+  const lastX=w,lastY=h-((series[series.length-1]-min)/rng)*(h-4)-2;
+  return `<svg class="spark" width="${w}" height="${h}"><polyline points="${pts}" fill="none" stroke="#0f8a7e" stroke-width="2"/><circle cx="${lastX}" cy="${lastY.toFixed(1)}" r="2.5" fill="#0e2a47"/></svg>`;
+}
+
+function buildFilters(){
+  const rows=ROWS.map(enrich);
+  const prods=[...new Set(rows.map(r=>r.product))].sort();
+  const rsms=[...new Set(rows.map(r=>r.rsm).filter(Boolean))].sort();
+  document.getElementById('fProduct').innerHTML='<option value="">All products</option>'+prods.map(p=>`<option>${esc(p)}</option>`).join('');
+  document.getElementById('fRSM').innerHTML='<option value="">All follow-up owners</option>'+rsms.map(r=>`<option>${esc(r)}</option>`).join('');
+}
+
+function render(){
+  document.getElementById('stamp').textContent='Updated '+new Date().toLocaleString('en-IN');
+  const q=document.getElementById('search').value.toLowerCase();
+  const fp=document.getElementById('fProduct').value;
+  const fr=document.getElementById('fRSM').value;
+  const fd=document.getElementById('fDue').value;
+  let rows=ROWS.map(enrich).sort((a,b)=>{if(a.reorderDue!==b.reorderDue)return a.reorderDue?-1:1;return 0});
+  rows=rows.filter(r=>{
+    if(fp&&r.product!==fp)return false;
+    if(fr&&r.rsm!==fr)return false;
+    if(fd==='due'&&!r.reorderDue)return false;
+    if(fd==='ok'&&r.reorderDue)return false;
+    if(q&&!(r.customer+' '+r.product+' '+r.rsm+' '+r.city+' '+r.doctorName).toLowerCase().includes(q))return false;
+    return true;
+  });
+
+  const all=ROWS.map(enrich);
+  const PRODUCT_ORDER=['ABT KIT','Capsule Endoscopy','Hydrogen Breath Test','FLUORECARE','DIGITRAPPER','EUS NEEDLE'];
+  const productCounts={};
+  all.forEach(r=>{
+    if(!productCounts[r.product]) productCounts[r.product]=new Set();
+    productCounts[r.product].add(r.customer);
+  });
+  const knownProducts=PRODUCT_ORDER.filter(p=>productCounts[p]);
+  const extraProducts=Object.keys(productCounts).filter(p=>!PRODUCT_ORDER.includes(p)).sort();
+  const orderedProducts=[...knownProducts,...extraProducts];
+  const productBoxes=orderedProducts.map(p=>
+    `<div class="stat"><div class="l">${esc(p)}</div><div class="n">${productCounts[p].size}</div></div>`
+  ).join('');
+
+  document.getElementById('statsProducts').innerHTML=productBoxes;
+  document.getElementById('statsGeneral').innerHTML=`
+    <div class="stat"><div class="l">Customers</div><div class="n">${new Set(all.map(r=>r.customer)).size}</div></div>
+    <div class="stat due clickable" onclick="filterReorderDue()"><div class="l">Reorder due</div><div class="n">${all.filter(r=>r.reorderDue).length}</div></div>
+    <div class="stat clickable" onclick="openMonthsModal()"><div class="l">Months tracked</div><div class="n">${MONTHS.length}</div></div>`;
+
+  if(!rows.length){document.getElementById('tableHost').innerHTML='<div class="empty">No lines match your filters.</div>';return;}
+  const mLabels=MONTHS.map(esc).join(' &middot; ');
+
+  let html=`<table><thead><tr>
+    <th>Customer</th><th>Product</th>
+    <th>Trend<br><span style="font-weight:400;text-transform:none">${mLabels}</span></th>
+    <th>Latest / Avg vs Expected</th><th>Status</th><th>Remark</th><th>Last email</th><th>Actions</th>
+  </tr></thead><tbody>`;
+  rows.forEach(r=>{
+    const i=ROWS.findIndex(x=>x.rowId===r.rowId);
+    const arrow=r.trend==='up'?'&#9650;':r.trend==='down'?'&#9660;':'&#9644;';
+    html+=`<tr class="${r.reorderDue?'due':''}">
+      <td><div class="cust">${esc(r.customer)}</div><div class="meta">${esc(r.city)}${r.doctorName?' &middot; '+esc(r.doctorName):''}</div></td>
+      <td><div class="prod">${esc(r.product)}</div><div class="meta">${r.rsm?esc(r.rsm):''}</div></td>
+      <td><div class="trend">${sparkline(r.series)}<span class="arrow ${r.trend}">${arrow}</span></div><div class="meta">${r.series.map(fmtNum).join(' &middot; ')}</div></td>
+      <td><b>${fmtNum(r.latest)}</b><div class="meta">avg ${fmtNum(r.avg)}/mo${r.hasRP?' &middot; expected '+fmtNum(r.reorderPoint):' &middot; no expected qty set'}</div></td>
+      <td>${r.reorderDue?'<span class="pill due">Reorder due</span>':(r.hasRP?'<span class="pill ok">Stocked</span>':'')}${r.status?'<div style="margin-top:4px"><span class="pill status">'+esc(r.status)+'</span></div>':''}${r.flagStatus?'<div style="margin-top:4px"><span class="pill flag">'+esc(r.flagStatus)+'</span></div>':''}</td>
+      <td class="remark" onclick="openRemark(${i})">${r.lastRemark?'<div class="preview">'+esc(r.lastRemark)+'</div>':'<span class="meta">&mdash;</span>'}${r.nextFollowupDate?'<div class="next">next '+esc(r.nextFollowupDate)+'</div>':''}</td>
+      <td class="meta">${r.lastEmailTimestamp?esc(r.lastEmailTimestamp):'&mdash;'}</td>
+      <td><div class="btns">
+        <button class="b-remark" onclick="openRemark(${i})">Remark</button>
+        <button class="b-email" onclick="openEmail(${i})">Log email &#9993;</button>
+      </div></td>
+    </tr>`;
+  });
+  html+='</tbody></table>';
+  document.getElementById('tableHost').innerHTML=html;
+}
+
+let remarkIdx=null;
+function openRemark(i){remarkIdx=i;const r=ROWS[i];
+  document.getElementById('remarkCtx').textContent=r.customer+' &middot; '+r.product;
+  const entries=(r.lastRemark||'').split('//').map(s=>s.trim()).filter(Boolean);
+  document.getElementById('rHistory').innerHTML = entries.length
+    ? entries.map(e=>`<div class="entry">${esc(e)}</div>`).join('')
+    : '<span class="meta">No history yet.</span>';
+  document.getElementById('rNote').value='';
+  document.getElementById('rDate').value='';
+  document.getElementById('remarkModal').classList.add('on');
+}
+function closeModal(){document.getElementById('remarkModal').classList.remove('on')}
+async function saveRemark(){const r=ROWS[remarkIdx];
+  const note=document.getElementById('rNote').value.trim();
+  const nextDate=document.getElementById('rDate').value;
+  if(!note && !nextDate){ closeModal(); return; }
+  closeModal();
+  try{
+    await postToBackend({action:'saveRemark',rowId:r.rowId,note,nextDate});
+    if(note){
+      const tz=new Date();
+      const dd=String(tz.getDate()).padStart(2,'0'), mm=String(tz.getMonth()+1).padStart(2,'0');
+      const entry=dd+'/'+mm+' '+note;
+      r.lastRemark = r.lastRemark ? (entry+' // '+r.lastRemark) : entry;
+    }
+    if(nextDate){
+      const [y,m,d]=nextDate.split('-');
+      r.nextFollowupDate = d+'/'+m+'/'+y;
+    }
+    render();
+    toast(LIVE?'Note saved to sheet':'Note saved (preview only)');
+  }catch(err){
+    toast('Could not save: '+err.message);
+  }
+}
+
+let emailIdx=null;
+function openEmail(i){emailIdx=i;const r=ROWS[i];
+  document.getElementById('emCtx').innerHTML=`<b>${esc(r.customer)}</b> &middot; ${esc(r.product)}<br>Email on file: ${esc(r.email)||'&mdash;'}`;
+  document.getElementById('emailModal').classList.add('on');
+}
+function closeEmail(){document.getElementById('emailModal').classList.remove('on')}
+async function confirmSend(){const r=ROWS[emailIdx];
+  closeEmail();
+  try{
+    await postToBackend({action:'logEmail',rowId:r.rowId});
+    const now=new Date();
+    const stamp=String(now.getDate()).padStart(2,'0')+'-'+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.getMonth()]+'-'+now.getFullYear()+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+    r.lastEmailTimestamp=stamp;
+    render();
+    toast(LIVE?'Logged in sheet (preview only &mdash; no real email dispatched)':'Logged (preview only)');
+  }catch(err){
+    toast('Could not log: '+err.message);
+  }
+}
+
+function filterReorderDue(){
+  document.getElementById('fDue').value='due';
+  document.getElementById('fProduct').value='';
+  document.getElementById('fRSM').value='';
+  document.getElementById('search').value='';
+  render();
+  document.getElementById('tableHost').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function openMonthsModal(){
+  document.getElementById('monthsCtx').textContent=MONTHS.length+' month(s) currently shown in the trend column, most recent last.';
+  document.getElementById('monthsList').innerHTML = MONTHS.length
+    ? MONTHS.map((m,idx)=>`<div class="entry">${idx+1}. ${esc(m)}</div>`).join('')
+    : '<span class="meta">No month columns detected yet.</span>';
+  document.getElementById('monthsModal').classList.add('on');
+}
+function closeMonthsModal(){document.getElementById('monthsModal').classList.remove('on')}
+
+let toastT;
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast on';clearTimeout(toastT);toastT=setTimeout(()=>t.className='toast',3000)}
+
+async function manualRefresh(){
+  const btn=document.getElementById('refreshBtn');
+  btn.disabled=true; btn.style.opacity='0.6';
+  const orig=btn.innerHTML; btn.innerHTML='&#8635; Refreshing...';
+  await loadData();
+  btn.innerHTML=orig; btn.disabled=false; btn.style.opacity='1';
+}
+
+loadData();
+</script>
+</body>
+</html>
