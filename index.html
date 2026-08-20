@@ -41,7 +41,7 @@
   .pill.ok{background:var(--teal-soft);color:var(--teal)}
   .pill.status{background:#eef3f8;color:var(--muted)}
   .pill.flag{background:#fff3d6;color:var(--amber)}
-  .trend{display:flex;align-items:center;gap:8px}
+  .trend{display:flex;align-items:center;gap:8px;width:100%}
   .arrow{font-weight:700}
   .arrow.up{color:var(--up)} .arrow.down{color:var(--down)} .arrow.flat{color:var(--muted)}
   .remark{max-width:260px;font-size:12px;color:#3a4a5a;line-height:1.35;cursor:pointer}
@@ -69,7 +69,7 @@
   .b-save{background:var(--teal);color:#fff}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:11px 18px;border-radius:8px;font-size:13px;opacity:0;transition:.25s;z-index:60;pointer-events:none}
   .toast.on{opacity:1}
-  .spark{vertical-align:middle}
+  .spark{vertical-align:middle;flex:1 1 auto;min-width:120px;width:100%;height:30px}
 </style>
 </head>
 <body>
@@ -87,7 +87,6 @@
 
 <div class="wrap">
   <div class="stat-row" id="statsProducts"></div>
-  <div class="stat-row" id="statsGeneral"></div>
   <div class="toolbar">
     <input id="search" placeholder="Search customer / doctor / city / product..." oninput="render()">
     <select id="fProduct" onchange="render()"><option value="">All products</option></select>
@@ -126,17 +125,6 @@
     <div class="modal-actions">
       <button class="b-cancel" onclick="closeEmail()">Cancel</button>
       <button class="b-save" onclick="confirmSend()">Log as sent</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-bg" id="monthsModal">
-  <div class="modal">
-    <h3>Months tracked</h3>
-    <div class="ctx" id="monthsCtx"></div>
-    <div class="history" id="monthsList"></div>
-    <div class="modal-actions">
-      <button class="b-cancel" onclick="closeMonthsModal()">Close</button>
     </div>
   </div>
 </div>
@@ -210,10 +198,10 @@ function enrich(r){
 }
 
 function sparkline(series){
-  const w=90,h=26,max=Math.max(...series,1),min=Math.min(...series,0),rng=(max-min)||1;
+  const w=240,h=30,max=Math.max(...series,1),min=Math.min(...series,0),rng=(max-min)||1;
   const pts=series.map((v,i)=>{const x=(i/(series.length-1||1))*w;const y=h-((v-min)/rng)*(h-4)-2;return x.toFixed(1)+','+y.toFixed(1)}).join(' ');
   const lastX=w,lastY=h-((series[series.length-1]-min)/rng)*(h-4)-2;
-  return `<svg class="spark" width="${w}" height="${h}"><polyline points="${pts}" fill="none" stroke="#0f8a7e" stroke-width="2"/><circle cx="${lastX}" cy="${lastY.toFixed(1)}" r="2.5" fill="#0e2a47"/></svg>`;
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="#0f8a7e" stroke-width="2"/><circle cx="${lastX}" cy="${lastY.toFixed(1)}" r="2.5" fill="#0e2a47"/></svg>`;
 }
 
 function buildFilters(){
@@ -251,14 +239,10 @@ function render(){
   const extraProducts=Object.keys(productCounts).filter(p=>!PRODUCT_ORDER.includes(p)).sort();
   const orderedProducts=[...knownProducts,...extraProducts];
   const productBoxes=orderedProducts.map(p=>
-    `<div class="stat"><div class="l">${esc(p)}</div><div class="n">${productCounts[p].size}</div></div>`
+    `<div class="stat"><div class="l">${esc(p)} CUSTOMERS</div><div class="n">${productCounts[p].size}</div></div>`
   ).join('');
 
   document.getElementById('statsProducts').innerHTML=productBoxes;
-  document.getElementById('statsGeneral').innerHTML=`
-    <div class="stat"><div class="l">Customers</div><div class="n">${new Set(all.map(r=>r.customer)).size}</div></div>
-    <div class="stat due clickable" onclick="filterReorderDue()"><div class="l">Reorder due</div><div class="n">${all.filter(r=>r.reorderDue).length}</div></div>
-    <div class="stat clickable" onclick="openMonthsModal()"><div class="l">Months tracked</div><div class="n">${MONTHS.length}</div></div>`;
 
   if(!rows.length){document.getElementById('tableHost').innerHTML='<div class="empty">No lines match your filters.</div>';return;}
   const mLabels=MONTHS.map(esc).join(' &middot; ');
@@ -340,24 +324,6 @@ async function confirmSend(){const r=ROWS[emailIdx];
     toast('Could not log: '+err.message);
   }
 }
-
-function filterReorderDue(){
-  document.getElementById('fDue').value='due';
-  document.getElementById('fProduct').value='';
-  document.getElementById('fRSM').value='';
-  document.getElementById('search').value='';
-  render();
-  document.getElementById('tableHost').scrollIntoView({behavior:'smooth',block:'start'});
-}
-
-function openMonthsModal(){
-  document.getElementById('monthsCtx').textContent=MONTHS.length+' month(s) currently shown in the trend column, most recent last.';
-  document.getElementById('monthsList').innerHTML = MONTHS.length
-    ? MONTHS.map((m,idx)=>`<div class="entry">${idx+1}. ${esc(m)}</div>`).join('')
-    : '<span class="meta">No month columns detected yet.</span>';
-  document.getElementById('monthsModal').classList.add('on');
-}
-function closeMonthsModal(){document.getElementById('monthsModal').classList.remove('on')}
 
 let toastT;
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast on';clearTimeout(toastT);toastT=setTimeout(()=>t.className='toast',3000)}
