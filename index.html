@@ -27,6 +27,13 @@
   .stat.clickable:hover{border-color:var(--teal);box-shadow:0 2px 8px rgba(15,138,126,.15)}
   .stat .n{font-size:22px;font-weight:700;color:var(--navy)}
   .stat.due .n{color:var(--red)}
+  .stat.sale{border-color:#cfe0d9;min-width:190px}
+  .stat.sale .l{color:var(--teal);margin-bottom:8px}
+  .sale-split{display:flex;align-items:stretch;gap:0}
+  .sale-col{flex:1;text-align:center}
+  .sale-h{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:3px}
+  .sale-v{font-size:16px;font-weight:700;color:var(--navy)}
+  .sale-divider{width:1px;background:var(--line);margin:0 10px}
   .stat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
   table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
   th{background:#eef3f8;text-align:left;padding:10px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);border-bottom:1px solid var(--line);white-space:nowrap}
@@ -86,6 +93,7 @@
 </header>
 
 <div class="wrap">
+  <div class="stat-row" id="statsSale"></div>
   <div class="stat-row" id="statsProducts"></div>
   <div class="toolbar">
     <input id="search" placeholder="Search customer / doctor / city / product..." oninput="render()">
@@ -139,15 +147,16 @@ const CONFIG = {
   API_URL: 'https://script.google.com/macros/s/AKfycbzAJe5CUvXv3ImjHv8Dvm7cuT0qEudpTHKgXqJyOe1kpSGnXMPx7xLD_fyTjgjILiuOgg/exec'
 };
 
-let MONTHS=[], ROWS=[];
+let MONTHS=[], ROWS=[], SALE_SUMMARY=[], FY_LABEL='';
+const PRODUCT_ORDER=['ABT KIT','Capsule Endoscopy','Hydrogen Breath Test','FLUORECARE','DIGITRAPPER','EUS NEEDLE'];
 const LIVE = !!CONFIG.API_URL;
 
 // ---- MOCK DATA (fallback preview when CONFIG.API_URL is empty) ----
 const MOCK_MONTHS=['Mar-2026','Apr-2026','May-2026','Jun-2026','Jul-2026','Aug-2026'];
 let MOCK_ROWS=[
-  {rowId:5,customer:'DR. VEENU JAMWAL - Jammu/ Shamshree Healthcare',contactPerson:'Mr. Faizan (Technician)',contactNo:'9469139860',doctorName:'Dr. Vijant Singh Chandail',doctorContactNo:'',city:'Jammu',rsm:'Manisha',productCode:'ABT KIT',product:'ABT KIT',series:[500,150,900,699,0,0],email:'vijant.chandail@yahoo.co.in',reorderPoint:500,lastRemark:'13/08 not answering // 06/08 not answering // 31/07 not answering',nextFollowupDate:'16/08/2026',status:'',flagStatus:'',currentRate:'700',oldRate:'600',lastEmailTimestamp:''},
-  {rowId:6,customer:'Bismillah Medical, Srinagar',contactPerson:'Technician - Ms. Zahida',contactNo:'9596010760',doctorName:'Dr. Shaukat Zargar',doctorContactNo:'9419003124',city:'Srinagar',rsm:'Manisha',productCode:'ABT KIT',product:'ABT KIT',series:[0,0,0,0,0,150],email:'showkatzargar6@gmail.com',reorderPoint:null,lastRemark:'10/08 will call next week // 04/08 will call after 10 days',nextFollowupDate:'13/08/2026',status:'',flagStatus:'Flag',currentRate:'630',oldRate:'600',lastEmailTimestamp:'20-May-2026 14:48'},
-  {rowId:198,customer:'Inderprastha Apollo, New Delhi',contactPerson:'Adhikari Technician Ramesh',contactNo:'9876541321',doctorName:'Dr. Sanjay Sikka',doctorContactNo:'',city:'New Delhi',rsm:'Manisha',productCode:'Capsule Endoscopy',product:'Capsule Endoscopy',series:[0,0,0,0,0,2],email:'chamoliapollo@gmail.com',reorderPoint:40,lastRemark:'11/08 no requirement // 04/08 dispatched 2 capsules',nextFollowupDate:'14/08/2026',status:'',flagStatus:'',currentRate:'28000',oldRate:'',lastEmailTimestamp:''}
+  {rowId:5,customer:'DR. VEENU JAMWAL - Jammu/ Shamshree Healthcare',contactPerson:'Mr. Faizan (Technician)',contactNo:'9469139860',doctorName:'Dr. Vijant Singh Chandail',doctorContactNo:'',city:'Jammu',rsm:'Manisha',productCode:'ABT KIT',product:'ABT KIT',series:[500,150,900,699,0,0],email:'vijant.chandail@yahoo.co.in',reorderPoint:500,expectedThisMonth:500,achievedThisMonth:0,avgConsumption6:341,lastRemark:'13/08 not answering // 06/08 not answering // 31/07 not answering',nextFollowupDate:'16/08/2026',status:'',flagStatus:'',currentRate:'700',oldRate:'600',lastEmailTimestamp:''},
+  {rowId:6,customer:'Bismillah Medical, Srinagar',contactPerson:'Technician - Ms. Zahida',contactNo:'9596010760',doctorName:'Dr. Shaukat Zargar',doctorContactNo:'9419003124',city:'Srinagar',rsm:'Manisha',productCode:'ABT KIT',product:'ABT KIT',series:[0,0,0,0,0,150],email:'showkatzargar6@gmail.com',reorderPoint:null,expectedThisMonth:null,achievedThisMonth:150,avgConsumption6:0,lastRemark:'10/08 will call next week // 04/08 will call after 10 days',nextFollowupDate:'13/08/2026',status:'',flagStatus:'Flag',currentRate:'630',oldRate:'600',lastEmailTimestamp:'20-May-2026 14:48'},
+  {rowId:198,customer:'Inderprastha Apollo, New Delhi',contactPerson:'Adhikari Technician Ramesh',contactNo:'9876541321',doctorName:'Dr. Sanjay Sikka',doctorContactNo:'',city:'New Delhi',rsm:'Manisha',productCode:'Capsule Endoscopy',product:'Capsule Endoscopy',series:[0,0,0,0,0,2],email:'chamoliapollo@gmail.com',reorderPoint:40,expectedThisMonth:40,achievedThisMonth:2,avgConsumption6:0,lastRemark:'11/08 no requirement // 04/08 dispatched 2 capsules',nextFollowupDate:'14/08/2026',status:'',flagStatus:'',currentRate:'28000',oldRate:'',lastEmailTimestamp:''}
 ];
 
 // ---- DATA LOADING ----
@@ -155,8 +164,10 @@ async function loadData(){
   const note=document.getElementById('modeNote');
   if(!LIVE){
     MONTHS=MOCK_MONTHS; ROWS=MOCK_ROWS;
+    SALE_SUMMARY=[{product:'ABT KIT',quantity:8680,amount:6377478},{product:'Capsule Endoscopy',quantity:1240,amount:34720000}];
+    FY_LABEL='2026-27';
     note.textContent='[Preview] Preview with sample data &middot; no backend connected (CONFIG.API_URL is empty).';
-    buildFilters();render();
+    buildFilters();renderSaleSummary();render();
     return;
   }
   note.textContent='[Loading] Loading data from your Main sheet...';
@@ -165,12 +176,13 @@ async function loadData(){
     const data=await res.json();
     if(data.error) throw new Error(data.error);
     MONTHS=data.months; ROWS=data.rows;
+    SALE_SUMMARY=data.saleSummary||[]; FY_LABEL=data.fyLabel||'';
     note.textContent='[Live] Live &middot; reading straight from your "Main" sheet &middot; saving a note updates Remarks/Next Followup &middot; "Log as sent" stamps Email Timestamp only (no real email sent).';
-    buildFilters();render();
+    buildFilters();renderSaleSummary();render();
   }catch(err){
     note.textContent='[!] Could not load from the sheet ('+err.message+'). Falling back to sample data.';
-    MONTHS=MOCK_MONTHS; ROWS=MOCK_ROWS;
-    buildFilters();render();
+    MONTHS=MOCK_MONTHS; ROWS=MOCK_ROWS; SALE_SUMMARY=[]; FY_LABEL='';
+    buildFilters();renderSaleSummary();render();
   }
 }
 
@@ -212,6 +224,30 @@ function buildFilters(){
   document.getElementById('fRSM').innerHTML='<option value="">All follow-up owners</option>'+rsms.map(r=>`<option>${esc(r)}</option>`).join('');
 }
 
+function fmtCurrency(n){return '&#8377;'+Number(n||0).toLocaleString('en-IN')}
+
+function renderSaleSummary(){
+  const host=document.getElementById('statsSale');
+  if(!SALE_SUMMARY.length){host.innerHTML='';return;}
+  const byProduct={};
+  SALE_SUMMARY.forEach(s=>byProduct[s.product]=s);
+  const known=PRODUCT_ORDER.filter(p=>byProduct[p]);
+  const extra=Object.keys(byProduct).filter(p=>!PRODUCT_ORDER.includes(p)).sort();
+  const ordered=[...known,...extra];
+  const label=FY_LABEL?' ('+esc(FY_LABEL)+')':'';
+  host.innerHTML=ordered.map(p=>{
+    const s=byProduct[p];
+    return `<div class="stat sale">
+      <div class="l">${esc(p)} SALE${label}</div>
+      <div class="sale-split">
+        <div class="sale-col"><div class="sale-h">QTY</div><div class="sale-v">${fmtNum(s.quantity)}</div></div>
+        <div class="sale-divider"></div>
+        <div class="sale-col"><div class="sale-h">Sale</div><div class="sale-v">${fmtCurrency(s.amount)}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function render(){
   document.getElementById('stamp').textContent='Updated '+new Date().toLocaleString('en-IN');
   const q=document.getElementById('search').value.toLowerCase();
@@ -229,7 +265,6 @@ function render(){
   });
 
   const all=ROWS.map(enrich);
-  const PRODUCT_ORDER=['ABT KIT','Capsule Endoscopy','Hydrogen Breath Test','FLUORECARE','DIGITRAPPER','EUS NEEDLE'];
   const productCounts={};
   all.forEach(r=>{
     if(!productCounts[r.product]) productCounts[r.product]=new Set();
@@ -250,7 +285,8 @@ function render(){
   let html=`<table><thead><tr>
     <th>Customer</th><th>Product</th>
     <th>Trend<br><span style="font-weight:400;text-transform:none">${mLabels}</span></th>
-    <th>Latest / Avg vs Expected</th><th>Status</th><th>Remark</th><th>Last email</th>
+    <th>Latest / Avg vs Expected</th><th>Remark</th>
+    <th style="text-align:center">Expected This Month</th><th style="text-align:center">Achieved This Month</th><th style="text-align:center">Average consumption 6 months</th>
   </tr></thead><tbody>`;
   rows.forEach(r=>{
     const i=ROWS.findIndex(x=>x.rowId===r.rowId);
@@ -260,9 +296,10 @@ function render(){
       <td><div class="prod">${esc(r.product)}</div><div class="meta">${r.rsm?esc(r.rsm):''}</div></td>
       <td><div class="trend">${sparkline(r.series)}<span class="arrow ${r.trend}">${arrow}</span></div><div class="meta">${r.series.map(fmtNum).join(' &middot; ')}</div></td>
       <td><b>${fmtNum(r.latest)}</b><div class="meta">avg ${fmtNum(r.avg)}/mo${r.hasRP?' &middot; expected '+fmtNum(r.reorderPoint):' &middot; no expected qty set'}</div></td>
-      <td>${r.reorderDue?'<span class="pill due">Reorder due</span>':(r.hasRP?'<span class="pill ok">Stocked</span>':'')}${r.status?'<div style="margin-top:4px"><span class="pill status">'+esc(r.status)+'</span></div>':''}${r.flagStatus?'<div style="margin-top:4px"><span class="pill flag">'+esc(r.flagStatus)+'</span></div>':''}</td>
       <td class="remark" onclick="openRemark(${i})">${r.lastRemark?'<div class="preview">'+esc(r.lastRemark)+'</div>':'<span class="meta">&mdash;</span>'}${r.nextFollowupDate?'<div class="next">next '+esc(r.nextFollowupDate)+'</div>':''}</td>
-      <td class="meta">${r.lastEmailTimestamp?esc(r.lastEmailTimestamp):'&mdash;'}</td>
+      <td class="meta" style="text-align:center">${r.expectedThisMonth==null?'&mdash;':fmtNum(r.expectedThisMonth)}</td>
+      <td class="meta" style="text-align:center">${r.achievedThisMonth==null?'&mdash;':fmtNum(r.achievedThisMonth)}</td>
+      <td class="meta" style="text-align:center">${r.avgConsumption6==null?'&mdash;':fmtNum(Math.round(r.avgConsumption6))}</td>
     </tr>`;
   });
   html+='</tbody></table>';
