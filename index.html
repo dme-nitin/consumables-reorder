@@ -49,6 +49,9 @@
   .pill.status{background:#eef3f8;color:var(--muted)}
   .pill.flag{background:#fff3d6;color:var(--amber)}
   .trend{display:flex;align-items:center;gap:8px;width:100%}
+  th:nth-child(3),td:nth-child(3){min-width:320px}
+  .trend-values{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px;font-size:11px;color:var(--muted)}
+  .trend-values span{white-space:nowrap}
   .arrow{font-weight:700}
   .arrow.up{color:var(--up)} .arrow.down{color:var(--down)} .arrow.flat{color:var(--muted)}
   .remark{max-width:260px;font-size:12px;color:#3a4a5a;line-height:1.35;cursor:pointer}
@@ -132,6 +135,17 @@
     <div class="modal-actions">
       <button class="b-cancel" onclick="closeEmail()">Cancel</button>
       <button class="b-save" onclick="confirmSend()">Log as sent</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="notBoughtModal">
+  <div class="modal">
+    <h3>Customers not bought in last 1 year</h3>
+    <div class="ctx" id="nbCtx"></div>
+    <div class="history" id="nbList"></div>
+    <div class="modal-actions">
+      <button class="b-cancel" onclick="closeNotBoughtModal()">Close</button>
     </div>
   </div>
 </div>
@@ -257,7 +271,7 @@ function renderSummaryTable(){
       <td style="text-align:center">${fmtNum(s.salesAchievedThisMonth)}</td>
       <td style="text-align:center">${fmtNum(s.salesAchievedTillDate)}</td>
       <td style="text-align:center">${fmtNum(s.totalCustomers)}</td>
-      <td style="text-align:center">${fmtNum(s.customersNotBoughtLastYear)}</td>
+      <td style="text-align:center"><span class="clickable-count" onclick="openNotBoughtModal('${esc(p).replace(/'/g,"\\'")}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;color:var(--navy);font-weight:600">${fmtNum(s.customersNotBoughtLastYear)}</span></td>
     </tr>`;
   });
   html+='</tbody></table>';
@@ -295,7 +309,7 @@ function render(){
     html+=`<tr class="${r.reorderDue?'due':''}">
       <td><div class="cust">${esc(r.customer)}</div><div class="meta">${esc(r.city)}${r.doctorName?' &middot; '+esc(r.doctorName):''}</div></td>
       <td><div class="prod">${esc(r.product)}</div><div class="meta">${r.rsm?esc(r.rsm):''}</div></td>
-      <td><div class="trend">${sparkline(r.series)}<span class="arrow ${r.trend}">${arrow}</span></div><div class="meta">${r.series.map(fmtNum).join(' &middot; ')}</div></td>
+      <td><div class="trend">${sparkline(r.series)}<span class="arrow ${r.trend}">${arrow}</span></div><div class="trend-values">${r.series.map((v,idx)=>`<span>${MONTHS[idx]?esc(MONTHS[idx].split('-')[0])+': ':''}${fmtNum(v)}</span>`).join('')}</div></td>
       <td class="remark" onclick="openRemark(${i})">${r.lastRemark?'<div class="preview">'+esc(r.lastRemark)+'</div>':'<span class="meta">&mdash;</span>'}${r.nextFollowupDate?'<div class="next">next '+esc(r.nextFollowupDate)+'</div>':''}</td>
       <td class="meta" style="text-align:center">${r.expectedThisMonth==null?'&mdash;':fmtNum(r.expectedThisMonth)}</td>
       <td class="meta" style="text-align:center">${r.achievedThisMonth==null?'&mdash;':fmtNum(r.achievedThisMonth)}</td>
@@ -348,6 +362,16 @@ function openEmail(i){emailIdx=i;const r=ROWS[i];
   document.getElementById('emailModal').classList.add('on');
 }
 function closeEmail(){document.getElementById('emailModal').classList.remove('on')}
+
+function openNotBoughtModal(product){
+  const matches=ROWS.filter(r=>r.product===product && r.notBoughtLastYear);
+  document.getElementById('nbCtx').textContent=product+' \u2014 '+matches.length+' customer(s) with 0 quantity in the last 12 months';
+  document.getElementById('nbList').innerHTML = matches.length
+    ? matches.map(r=>`<div class="entry"><b>${esc(r.customer)}</b>${r.city?' &middot; '+esc(r.city):''}</div>`).join('')
+    : '<span class="meta">No matching customers.</span>';
+  document.getElementById('notBoughtModal').classList.add('on');
+}
+function closeNotBoughtModal(){document.getElementById('notBoughtModal').classList.remove('on')}
 async function confirmSend(){const r=ROWS[emailIdx];
   closeEmail();
   try{
