@@ -94,6 +94,13 @@
   .nb-filters{display:flex;gap:10px;flex-wrap:wrap;padding:14px 22px;background:#fff;border-bottom:1px solid var(--line)}
   .nb-filters select,.nb-filters input{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:#fff}
   .nb-filters input{min-width:150px;flex:1 1 150px}
+  .nb-multiselect{position:relative}
+  .nb-multiselect-btn{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:#fff;color:var(--ink);min-width:150px;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer}
+  .nb-multiselect-btn:hover{border-color:var(--teal)}
+  .nb-multiselect-panel{position:absolute;top:calc(100% + 4px);left:0;z-index:50;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:220px;max-height:280px;overflow-y:auto;padding:6px 0}
+  .nb-multiselect-panel label{display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:13px;cursor:pointer;white-space:nowrap}
+  .nb-multiselect-panel label:hover{background:#f5f8fb}
+  .nb-multiselect-panel .nb-ms-divider{border-top:1px solid var(--line);margin:4px 0}
   .nb-table-wrap{flex:1;overflow:auto;padding:14px 22px}
   .nb-table-wrap table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .nb-table-wrap th{background:#eef3f8;text-align:left;padding:10px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
@@ -178,7 +185,10 @@
   <div class="nb-filters">
     <select id="nbProduct" onchange="onNbProductChange()"></select>
     <input id="nbSearch" placeholder="Search all columns..." oninput="renderNotBoughtPanel()">
-    <select id="nbCity" onchange="renderNotBoughtPanel()"><option value="">All Cities</option></select>
+    <div class="nb-multiselect" id="nbCityWrap">
+      <button type="button" class="nb-multiselect-btn" id="nbCityBtn" onclick="toggleCityPanel()">All Cities <span>&#9662;</span></button>
+      <div class="nb-multiselect-panel" id="nbCityPanel" style="display:none"></div>
+    </div>
     <input id="nbHospital" placeholder="Hospital Name" oninput="renderNotBoughtPanel()">
     <input id="nbDoctor" placeholder="Doctor Name" oninput="renderNotBoughtPanel()">
     <input id="nbContact" placeholder="Contact Person" oninput="renderNotBoughtPanel()">
@@ -403,7 +413,7 @@ function openEmail(i){emailIdx=i;const r=ROWS[i];
 function closeEmail(){document.getElementById('emailModal').classList.remove('on')}
 
 // ---- Full-screen "Customers Not Bought in Last 6 Months and More" panel ----
-let NB_STATE={product:'',sortKey:'customer',sortDir:'asc',page:1,pageSize:25};
+let NB_STATE={product:'',sortKey:'customer',sortDir:'asc',page:1,pageSize:25,selectedCities:new Set(),availableCities:[]};
 
 function toTitleCase_(str){
   return str.toLowerCase().replace(/\b\w/g, c=>c.toUpperCase());
@@ -452,15 +462,65 @@ function refreshNbCityOptions(){
     if(!cityMap.has(key)) cityMap.set(key, display);
   });
   const allCities=[...cityMap.values()].sort((a,b)=>a.localeCompare(b));
-  const sel=document.getElementById('nbCity');
-  const prevKey=sel.value.toLowerCase();
-  sel.innerHTML='<option value="">All Cities</option>'+allCities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
-  const stillValid=allCities.some(c=>c.toLowerCase()===prevKey);
-  sel.value=stillValid?sel.value:'';
+  NB_STATE.availableCities=allCities;
+  // Drop any previously-selected cities that no longer exist for this product
+  NB_STATE.selectedCities=new Set([...NB_STATE.selectedCities].filter(c=>allCities.includes(c)));
+  renderCityPanel();
+  updateCityButtonLabel();
 }
 
+function renderCityPanel(){
+  const panel=document.getElementById('nbCityPanel');
+  const allChecked=NB_STATE.selectedCities.size===0;
+  let html=`<label><input type="checkbox" ${allChecked?'checked':''} onchange="onCityAllToggle(this.checked)"> All Cities</label><div class="nb-ms-divider"></div>`;
+  html+=NB_STATE.availableCities.map(c=>{
+    const checked=NB_STATE.selectedCities.has(c);
+    return `<label><input type="checkbox" ${checked?'checked':''} onchange="onCityCheckToggle('${c.replace(/'/g,"\\'")}',this.checked)"> ${esc(c)}</label>`;
+  }).join('');
+  panel.innerHTML=html;
+}
+
+function updateCityButtonLabel(){
+  const btn=document.getElementById('nbCityBtn');
+  const n=NB_STATE.selectedCities.size;
+  const label=n===0?'All Cities':(n===1?[...NB_STATE.selectedCities][0]:n+' cities selected');
+  btn.innerHTML=esc(label)+' <span>&#9662;</span>';
+}
+
+function toggleCityPanel(){
+  const panel=document.getElementById('nbCityPanel');
+  panel.style.display=panel.style.display==='none'?'block':'none';
+}
+
+function onCityAllToggle(checked){
+  if(checked){
+    NB_STATE.selectedCities=new Set();
+    renderCityPanel();
+    updateCityButtonLabel();
+    NB_STATE.page=1;
+    renderNotBoughtPanel();
+  }
+}
+
+function onCityCheckToggle(city,checked){
+  if(checked) NB_STATE.selectedCities.add(city);
+  else NB_STATE.selectedCities.delete(city);
+  renderCityPanel();
+  updateCityButtonLabel();
+  NB_STATE.page=1;
+  renderNotBoughtPanel();
+}
+
+document.addEventListener('click',function(e){
+  const wrap=document.getElementById('nbCityWrap');
+  if(wrap && !wrap.contains(e.target)){
+    const panel=document.getElementById('nbCityPanel');
+    if(panel) panel.style.display='none';
+  }
+});
+
 function openNotBoughtPanel(product){
-  NB_STATE={product:product,sortKey:'customer',sortDir:'asc',page:1,pageSize:25};
+  NB_STATE={product:product,sortKey:'customer',sortDir:'asc',page:1,pageSize:25,selectedCities:new Set(),availableCities:[]};
   const allProducts=[...new Set(ROWS.map(r=>r.product))].sort();
   document.getElementById('nbProduct').innerHTML=allProducts.map(p=>`<option value="${esc(p)}"${p===product?' selected':''}>${esc(p)}</option>`).join('');
   document.getElementById('nbSearch').value='';
@@ -480,10 +540,12 @@ function onNbProductChange(){
 }
 function resetNbFilters(){
   document.getElementById('nbSearch').value='';
-  document.getElementById('nbCity').value='';
   document.getElementById('nbHospital').value='';
   document.getElementById('nbDoctor').value='';
   document.getElementById('nbContact').value='';
+  NB_STATE.selectedCities=new Set();
+  renderCityPanel();
+  updateCityButtonLabel();
   NB_STATE.page=1;
   renderNotBoughtPanel();
 }
@@ -495,12 +557,11 @@ function nbSortBy(key){
 function getNbFiltered(){
   const product=NB_STATE.product;
   const q=document.getElementById('nbSearch').value.toLowerCase();
-  const city=document.getElementById('nbCity').value.toLowerCase();
   const hosp=document.getElementById('nbHospital').value.toLowerCase();
   const doc=document.getElementById('nbDoctor').value.toLowerCase();
   const cont=document.getElementById('nbContact').value.toLowerCase();
   let rows=ROWS.filter(r=>r.product===product && r.notBoughtLastYear);
-  if(city) rows=rows.filter(r=>normalizeCityName_((r.city||'')).toLowerCase()===city);
+  if(NB_STATE.selectedCities.size>0) rows=rows.filter(r=>NB_STATE.selectedCities.has(normalizeCityName_(r.city||'')));
   if(hosp) rows=rows.filter(r=>(r.customer||'').toLowerCase().includes(hosp));
   if(doc) rows=rows.filter(r=>(r.doctorName||'').toLowerCase().includes(doc));
   if(cont) rows=rows.filter(r=>(r.contactPerson||'').toLowerCase().includes(cont));
