@@ -80,6 +80,31 @@
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:11px 18px;border-radius:8px;font-size:13px;opacity:0;transition:.25s;z-index:60;pointer-events:none}
   .toast.on{opacity:1}
   .spark{vertical-align:middle;flex:1 1 auto;min-width:120px;width:100%;height:30px}
+
+  /* ---- Full-screen "not bought" panel ---- */
+  .nb-panel{display:none;position:fixed;inset:0;background:var(--bg);z-index:100;flex-direction:column}
+  .nb-panel.on{display:flex}
+  .nb-header{background:linear-gradient(100deg,var(--navy),var(--navy-2));color:#fff;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  .nb-header h2{margin:0;font-size:17px;font-weight:600}
+  .nb-sub{font-size:12px;opacity:.8;margin-top:2px}
+  .nb-btn{border:none;border-radius:7px;font-size:12px;font-weight:600;padding:8px 12px;cursor:pointer}
+  .nb-btn-export{background:var(--teal);color:#fff}
+  .nb-btn-close{background:rgba(255,255,255,.16);color:#fff}
+  .nb-btn-reset{background:#eef3f8;color:var(--navy)}
+  .nb-filters{display:flex;gap:10px;flex-wrap:wrap;padding:14px 22px;background:#fff;border-bottom:1px solid var(--line)}
+  .nb-filters select,.nb-filters input{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:#fff}
+  .nb-filters input{min-width:150px;flex:1 1 150px}
+  .nb-table-wrap{flex:1;overflow:auto;padding:14px 22px}
+  .nb-table-wrap table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .nb-table-wrap th{background:#eef3f8;text-align:left;padding:10px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+  .nb-table-wrap th:hover{color:var(--navy)}
+  .nb-table-wrap td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;font-size:13px}
+  .nb-table-wrap tr:last-child td{border-bottom:none}
+  .nb-sort-arrow{font-size:9px;margin-left:3px;opacity:.7}
+  .nb-pagination{display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;background:#fff;border-top:1px solid var(--line)}
+  .nb-pagination button{background:#eef3f8;color:var(--navy);border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer}
+  .nb-pagination button:disabled{opacity:.4;cursor:not-allowed}
+  .nb-pagination .page-info{font-size:12px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -139,16 +164,30 @@
   </div>
 </div>
 
-<div class="modal-bg" id="notBoughtModal">
-  <div class="modal">
-    <h3>Customers not bought in last 1 year</h3>
-    <div class="ctx" id="nbCtx"></div>
-    <div class="history" id="nbList"></div>
-    <div class="modal-actions">
-      <button class="b-cancel" onclick="closeNotBoughtModal()">Close</button>
+<div class="nb-panel" id="notBoughtPanel">
+  <div class="nb-header">
+    <div>
+      <h2 id="nbTitle">Customers Not Bought in Last 1 Year</h2>
+      <div class="nb-sub" id="nbSub"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="nb-btn nb-btn-export" onclick="exportNotBoughtCsv()">Export CSV</button>
+      <button class="nb-btn nb-btn-close" onclick="closeNotBoughtPanel()">&#10005; Close</button>
     </div>
   </div>
+  <div class="nb-filters">
+    <select id="nbProduct" onchange="onNbProductChange()"></select>
+    <input id="nbSearch" placeholder="Search all columns..." oninput="renderNotBoughtPanel()">
+    <input id="nbCity" placeholder="City" oninput="renderNotBoughtPanel()">
+    <input id="nbHospital" placeholder="Hospital Name" oninput="renderNotBoughtPanel()">
+    <input id="nbDoctor" placeholder="Doctor Name" oninput="renderNotBoughtPanel()">
+    <input id="nbContact" placeholder="Contact Person" oninput="renderNotBoughtPanel()">
+    <button class="nb-btn nb-btn-reset" onclick="resetNbFilters()">Reset</button>
+  </div>
+  <div class="nb-table-wrap" id="nbTableWrap"></div>
+  <div class="nb-pagination" id="nbPagination"></div>
 </div>
+
 
 <div class="toast" id="toast"></div>
 
@@ -271,7 +310,7 @@ function renderSummaryTable(){
       <td style="text-align:center">${fmtNum(s.salesAchievedThisMonth)}</td>
       <td style="text-align:center">${fmtNum(s.salesAchievedTillDate)}</td>
       <td style="text-align:center">${fmtNum(s.totalCustomers)}</td>
-      <td style="text-align:center"><span class="clickable-count" onclick="openNotBoughtModal('${esc(p).replace(/'/g,"\\'")}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;color:var(--navy);font-weight:600">${fmtNum(s.customersNotBoughtLastYear)}</span></td>
+      <td style="text-align:center"><span class="clickable-count" onclick="openNotBoughtPanel('${esc(p).replace(/'/g,"\\'")}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;color:var(--navy);font-weight:600">${fmtNum(s.customersNotBoughtLastYear)}</span></td>
     </tr>`;
   });
   html+='</tbody></table>';
@@ -363,15 +402,132 @@ function openEmail(i){emailIdx=i;const r=ROWS[i];
 }
 function closeEmail(){document.getElementById('emailModal').classList.remove('on')}
 
-function openNotBoughtModal(product){
-  const matches=ROWS.filter(r=>r.product===product && r.notBoughtLastYear);
-  document.getElementById('nbCtx').textContent=product+' \u2014 '+matches.length+' customer(s) with 0 quantity in the last 12 months';
-  document.getElementById('nbList').innerHTML = matches.length
-    ? matches.map(r=>`<div class="entry"><b>${esc(r.customer)}</b>${r.city?' &middot; '+esc(r.city):''}</div>`).join('')
-    : '<span class="meta">No matching customers.</span>';
-  document.getElementById('notBoughtModal').classList.add('on');
+// ---- Full-screen "Customers Not Bought in Last 1 Year" panel ----
+let NB_STATE={product:'',sortKey:'customer',sortDir:'asc',page:1,pageSize:25};
+
+function openNotBoughtPanel(product){
+  NB_STATE={product:product,sortKey:'customer',sortDir:'asc',page:1,pageSize:25};
+  const allProducts=[...new Set(ROWS.map(r=>r.product))].sort();
+  document.getElementById('nbProduct').innerHTML=allProducts.map(p=>`<option value="${esc(p)}"${p===product?' selected':''}>${esc(p)}</option>`).join('');
+  document.getElementById('nbSearch').value='';
+  document.getElementById('nbCity').value='';
+  document.getElementById('nbHospital').value='';
+  document.getElementById('nbDoctor').value='';
+  document.getElementById('nbContact').value='';
+  document.getElementById('notBoughtPanel').classList.add('on');
+  renderNotBoughtPanel();
 }
-function closeNotBoughtModal(){document.getElementById('notBoughtModal').classList.remove('on')}
+function closeNotBoughtPanel(){document.getElementById('notBoughtPanel').classList.remove('on')}
+function onNbProductChange(){NB_STATE.product=document.getElementById('nbProduct').value;NB_STATE.page=1;renderNotBoughtPanel()}
+function resetNbFilters(){
+  document.getElementById('nbSearch').value='';
+  document.getElementById('nbCity').value='';
+  document.getElementById('nbHospital').value='';
+  document.getElementById('nbDoctor').value='';
+  document.getElementById('nbContact').value='';
+  NB_STATE.page=1;
+  renderNotBoughtPanel();
+}
+function nbSortBy(key){
+  if(NB_STATE.sortKey===key){NB_STATE.sortDir=NB_STATE.sortDir==='asc'?'desc':'asc';}
+  else{NB_STATE.sortKey=key;NB_STATE.sortDir='asc';}
+  renderNotBoughtPanel();
+}
+function getNbFiltered(){
+  const product=NB_STATE.product;
+  const q=document.getElementById('nbSearch').value.toLowerCase();
+  const city=document.getElementById('nbCity').value.toLowerCase();
+  const hosp=document.getElementById('nbHospital').value.toLowerCase();
+  const doc=document.getElementById('nbDoctor').value.toLowerCase();
+  const cont=document.getElementById('nbContact').value.toLowerCase();
+  let rows=ROWS.filter(r=>r.product===product && r.notBoughtLastYear);
+  if(city) rows=rows.filter(r=>(r.city||'').toLowerCase().includes(city));
+  if(hosp) rows=rows.filter(r=>(r.customer||'').toLowerCase().includes(hosp));
+  if(doc) rows=rows.filter(r=>(r.doctorName||'').toLowerCase().includes(doc));
+  if(cont) rows=rows.filter(r=>(r.contactPerson||'').toLowerCase().includes(cont));
+  if(q) rows=rows.filter(r=>(r.contactPerson+' '+r.contactNo+' '+r.doctorName+' '+r.doctorContactNo+' '+r.customer+' '+r.city+' '+r.email+' '+r.lastRemark).toLowerCase().includes(q));
+  const key=NB_STATE.sortKey, dir=NB_STATE.sortDir==='asc'?1:-1;
+  rows=rows.slice().sort((a,b)=>{
+    const av=(a[key]||'').toString().toLowerCase(), bv=(b[key]||'').toString().toLowerCase();
+    if(av<bv)return -1*dir; if(av>bv)return 1*dir; return 0;
+  });
+  return rows;
+}
+function renderNotBoughtPanel(){
+  const product=document.getElementById('nbProduct').value||NB_STATE.product;
+  NB_STATE.product=product;
+  document.getElementById('nbTitle').textContent=product+' - Customers Not Bought in Last 1 Year';
+  const filtered=getNbFiltered();
+  document.getElementById('nbSub').textContent=filtered.length+' customer(s) with 0 quantity in the last 12 months';
+
+  const cols=[
+    {key:'contactPerson',label:'Contact Person'},
+    {key:'contactNo',label:'Contact No'},
+    {key:'doctorName',label:'Doctor Name'},
+    {key:'doctorContactNo',label:'Doctor Contact No'},
+    {key:'customer',label:'Hospital Name'},
+    {key:'city',label:'City'},
+    {key:'email',label:'Email'},
+    {key:'lastRemark',label:'Remarks'}
+  ];
+
+  const totalPages=Math.max(1,Math.ceil(filtered.length/NB_STATE.pageSize));
+  if(NB_STATE.page>totalPages) NB_STATE.page=totalPages;
+  const startIdx=(NB_STATE.page-1)*NB_STATE.pageSize;
+  const pageRows=filtered.slice(startIdx,startIdx+NB_STATE.pageSize);
+
+  let html='<table><thead><tr>';
+  cols.forEach(c=>{
+    const arrow=NB_STATE.sortKey===c.key?(NB_STATE.sortDir==='asc'?'&#9650;':'&#9660;'):'';
+    html+=`<th onclick="nbSortBy('${c.key}')">${esc(c.label)}<span class="nb-sort-arrow">${arrow}</span></th>`;
+  });
+  html+='</tr></thead><tbody>';
+  if(!pageRows.length){
+    html+=`<tr><td colspan="${cols.length}" style="text-align:center;color:var(--muted);padding:30px">No matching customers.</td></tr>`;
+  }else{
+    pageRows.forEach(r=>{
+      html+='<tr>'+cols.map(c=>`<td>${esc(r[c.key]||'-')}</td>`).join('')+'</tr>';
+    });
+  }
+  html+='</tbody></table>';
+  document.getElementById('nbTableWrap').innerHTML=html;
+
+  document.getElementById('nbPagination').innerHTML=`
+    <button onclick="nbGoPage(${NB_STATE.page-1})" ${NB_STATE.page<=1?'disabled':''}>&#8592; Prev</button>
+    <span class="page-info">Page ${NB_STATE.page} of ${totalPages} &middot; ${filtered.length} total</span>
+    <button onclick="nbGoPage(${NB_STATE.page+1})" ${NB_STATE.page>=totalPages?'disabled':''}>Next &#8594;</button>`;
+}
+function nbGoPage(p){NB_STATE.page=p;renderNotBoughtPanel()}
+
+function exportNotBoughtCsv(){
+  const rows=getNbFiltered();
+  const cols=[
+    {key:'contactPerson',label:'Contact Person'},
+    {key:'contactNo',label:'Contact No'},
+    {key:'doctorName',label:'Doctor Name'},
+    {key:'doctorContactNo',label:'Doctor Contact No'},
+    {key:'customer',label:'Hospital Name'},
+    {key:'city',label:'City'},
+    {key:'email',label:'Email'},
+    {key:'lastRemark',label:'Remarks'}
+  ];
+  const csvEsc=v=>{
+    const s=String(v==null?'':v).replace(/"/g,'""');
+    return /[",\n]/.test(s) ? '"'+s+'"' : s;
+  };
+  let csv=cols.map(c=>csvEsc(c.label)).join(',')+'\r\n';
+  rows.forEach(r=>{csv+=cols.map(c=>csvEsc(r[c.key])).join(',')+'\r\n';});
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=(NB_STATE.product||'customers').replace(/[^a-z0-9]+/gi,'_')+'_not_bought_1yr.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 async function confirmSend(){const r=ROWS[emailIdx];
   closeEmail();
   try{
