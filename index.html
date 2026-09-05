@@ -167,7 +167,7 @@
 <div class="nb-panel" id="notBoughtPanel">
   <div class="nb-header">
     <div>
-      <h2 id="nbTitle">Customers Not Bought in Last 1 Year</h2>
+      <h2 id="nbTitle">Customers Not Bought in Last 6 Months and More</h2>
       <div class="nb-sub" id="nbSub"></div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
@@ -178,7 +178,7 @@
   <div class="nb-filters">
     <select id="nbProduct" onchange="onNbProductChange()"></select>
     <input id="nbSearch" placeholder="Search all columns..." oninput="renderNotBoughtPanel()">
-    <input id="nbCity" placeholder="City" oninput="renderNotBoughtPanel()">
+    <select id="nbCity" onchange="renderNotBoughtPanel()"><option value="">All Cities</option></select>
     <input id="nbHospital" placeholder="Hospital Name" oninput="renderNotBoughtPanel()">
     <input id="nbDoctor" placeholder="Doctor Name" oninput="renderNotBoughtPanel()">
     <input id="nbContact" placeholder="Contact Person" oninput="renderNotBoughtPanel()">
@@ -300,7 +300,7 @@ function renderSummaryTable(){
     +'<th style="text-align:center">Sales Achieved this month</th>'
     +'<th style="text-align:center">Sales Achieved till date</th>'
     +'<th style="text-align:center">Total customers</th>'
-    +'<th style="text-align:center">Customers not bought in last 1 year</th>'
+    +'<th style="text-align:center">Customers not bought in last 6 months and more</th>'
     +'</tr></thead><tbody>';
   ordered.forEach(p=>{
     const s=byProduct[p];
@@ -402,13 +402,15 @@ function openEmail(i){emailIdx=i;const r=ROWS[i];
 }
 function closeEmail(){document.getElementById('emailModal').classList.remove('on')}
 
-// ---- Full-screen "Customers Not Bought in Last 1 Year" panel ----
+// ---- Full-screen "Customers Not Bought in Last 6 Months and More" panel ----
 let NB_STATE={product:'',sortKey:'customer',sortDir:'asc',page:1,pageSize:25};
 
 function openNotBoughtPanel(product){
   NB_STATE={product:product,sortKey:'customer',sortDir:'asc',page:1,pageSize:25};
   const allProducts=[...new Set(ROWS.map(r=>r.product))].sort();
   document.getElementById('nbProduct').innerHTML=allProducts.map(p=>`<option value="${esc(p)}"${p===product?' selected':''}>${esc(p)}</option>`).join('');
+  const allCities=[...new Set(ROWS.map(r=>(r.city||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  document.getElementById('nbCity').innerHTML='<option value="">All Cities</option>'+allCities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
   document.getElementById('nbSearch').value='';
   document.getElementById('nbCity').value='';
   document.getElementById('nbHospital').value='';
@@ -456,9 +458,9 @@ function getNbFiltered(){
 function renderNotBoughtPanel(){
   const product=document.getElementById('nbProduct').value||NB_STATE.product;
   NB_STATE.product=product;
-  document.getElementById('nbTitle').textContent=product+' - Customers Not Bought in Last 1 Year';
+  document.getElementById('nbTitle').textContent=product+' - Customers Not Bought in Last 6 Months and More';
   const filtered=getNbFiltered();
-  document.getElementById('nbSub').textContent=filtered.length+' customer(s) with 0 quantity in the last 12 months';
+  document.getElementById('nbSub').textContent=filtered.length+' customer(s) with 0 quantity in the last 6 completed months';
 
   const cols=[
     {key:'contactPerson',label:'Contact Person'},
@@ -468,7 +470,8 @@ function renderNotBoughtPanel(){
     {key:'customer',label:'Hospital Name'},
     {key:'city',label:'City'},
     {key:'email',label:'Email'},
-    {key:'lastSaleDate',label:'Last Order Date'}
+    {key:'lastSaleDate',label:'Last Order Date'},
+    {key:'lastOrderQty',label:'Last Order Qty'}
   ];
 
   const totalPages=Math.max(1,Math.ceil(filtered.length/NB_STATE.pageSize));
@@ -509,7 +512,8 @@ function exportNotBoughtCsv(){
     {key:'customer',label:'Hospital Name'},
     {key:'city',label:'City'},
     {key:'email',label:'Email'},
-    {key:'lastSaleDate',label:'Last Order Date'}
+    {key:'lastSaleDate',label:'Last Order Date'},
+    {key:'lastOrderQty',label:'Last Order Qty'}
   ];
   const csvEsc=v=>{
     const s=String(v==null?'':v).replace(/"/g,'""');
@@ -521,7 +525,7 @@ function exportNotBoughtCsv(){
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url;
-  a.download=(NB_STATE.product||'customers').replace(/[^a-z0-9]+/gi,'_')+'_not_bought_1yr.csv';
+  a.download=(NB_STATE.product||'customers').replace(/[^a-z0-9]+/gi,'_')+'_not_bought_6mo_plus.csv';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
