@@ -405,22 +405,46 @@ function closeEmail(){document.getElementById('emailModal').classList.remove('on
 // ---- Full-screen "Customers Not Bought in Last 6 Months and More" panel ----
 let NB_STATE={product:'',sortKey:'customer',sortDir:'asc',page:1,pageSize:25};
 
+function toTitleCase_(str){
+  return str.toLowerCase().replace(/\b\w/g, c=>c.toUpperCase());
+}
+
+function refreshNbCityOptions(){
+  const eligible=ROWS.filter(r=>r.product===NB_STATE.product && r.notBoughtLastYear);
+  const cityMap=new Map(); // lowercase key -> nicely-cased display value
+  eligible.forEach(r=>{
+    const raw=(r.city||'').trim();
+    if(!raw) return;
+    const key=raw.toLowerCase();
+    if(!cityMap.has(key)) cityMap.set(key, toTitleCase_(raw));
+  });
+  const allCities=[...cityMap.values()].sort((a,b)=>a.localeCompare(b));
+  const sel=document.getElementById('nbCity');
+  const prevKey=sel.value.toLowerCase();
+  sel.innerHTML='<option value="">All Cities</option>'+allCities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  const stillValid=allCities.some(c=>c.toLowerCase()===prevKey);
+  sel.value=stillValid?sel.value:'';
+}
+
 function openNotBoughtPanel(product){
   NB_STATE={product:product,sortKey:'customer',sortDir:'asc',page:1,pageSize:25};
   const allProducts=[...new Set(ROWS.map(r=>r.product))].sort();
   document.getElementById('nbProduct').innerHTML=allProducts.map(p=>`<option value="${esc(p)}"${p===product?' selected':''}>${esc(p)}</option>`).join('');
-  const allCities=[...new Set(ROWS.map(r=>(r.city||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-  document.getElementById('nbCity').innerHTML='<option value="">All Cities</option>'+allCities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
   document.getElementById('nbSearch').value='';
-  document.getElementById('nbCity').value='';
   document.getElementById('nbHospital').value='';
   document.getElementById('nbDoctor').value='';
   document.getElementById('nbContact').value='';
+  refreshNbCityOptions();
   document.getElementById('notBoughtPanel').classList.add('on');
   renderNotBoughtPanel();
 }
 function closeNotBoughtPanel(){document.getElementById('notBoughtPanel').classList.remove('on')}
-function onNbProductChange(){NB_STATE.product=document.getElementById('nbProduct').value;NB_STATE.page=1;renderNotBoughtPanel()}
+function onNbProductChange(){
+  NB_STATE.product=document.getElementById('nbProduct').value;
+  NB_STATE.page=1;
+  refreshNbCityOptions();
+  renderNotBoughtPanel();
+}
 function resetNbFilters(){
   document.getElementById('nbSearch').value='';
   document.getElementById('nbCity').value='';
