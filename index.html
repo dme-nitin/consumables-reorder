@@ -409,14 +409,38 @@ function toTitleCase_(str){
   return str.toLowerCase().replace(/\b\w/g, c=>c.toUpperCase());
 }
 
+// Known spelling/format variants that should be merged into one city name.
+// Add more entries here (lowercase key -> canonical display name) as you
+// spot new duplicates in the dropdown.
+const CITY_ALIASES={
+  'bhubneshwar':'Bhubaneswar',
+  'bhuvneshwar':'Bhubaneswar',
+  'bhubaneshwar':'Bhubaneswar',
+  'bhubaneswar, odisha':'Bhubaneswar',
+  'bhubaneswar,odisha':'Bhubaneswar',
+  'j&k':'Jammu And Kashmir',
+  'j & k':'Jammu And Kashmir',
+  'jammu & kashmir':'Jammu And Kashmir',
+  'jammu and kashmir':'Jammu And Kashmir',
+  'jammu & kashmir (j&k)':'Jammu And Kashmir',
+  'jammu and  kashmir':'Jammu And Kashmir'
+};
+
+function normalizeCityName_(raw){
+  const cleaned=raw.trim().replace(/\s+/g,' ');
+  const lower=cleaned.toLowerCase();
+  return CITY_ALIASES[lower] || toTitleCase_(cleaned);
+}
+
 function refreshNbCityOptions(){
   const eligible=ROWS.filter(r=>r.product===NB_STATE.product && r.notBoughtLastYear);
-  const cityMap=new Map(); // lowercase key -> nicely-cased display value
+  const cityMap=new Map(); // lowercase display -> display value
   eligible.forEach(r=>{
     const raw=(r.city||'').trim();
     if(!raw) return;
-    const key=raw.toLowerCase();
-    if(!cityMap.has(key)) cityMap.set(key, toTitleCase_(raw));
+    const display=normalizeCityName_(raw);
+    const key=display.toLowerCase();
+    if(!cityMap.has(key)) cityMap.set(key, display);
   });
   const allCities=[...cityMap.values()].sort((a,b)=>a.localeCompare(b));
   const sel=document.getElementById('nbCity');
@@ -467,7 +491,7 @@ function getNbFiltered(){
   const doc=document.getElementById('nbDoctor').value.toLowerCase();
   const cont=document.getElementById('nbContact').value.toLowerCase();
   let rows=ROWS.filter(r=>r.product===product && r.notBoughtLastYear);
-  if(city) rows=rows.filter(r=>(r.city||'').toLowerCase().includes(city));
+  if(city) rows=rows.filter(r=>normalizeCityName_((r.city||'')).toLowerCase()===city);
   if(hosp) rows=rows.filter(r=>(r.customer||'').toLowerCase().includes(hosp));
   if(doc) rows=rows.filter(r=>(r.doctorName||'').toLowerCase().includes(doc));
   if(cont) rows=rows.filter(r=>(r.contactPerson||'').toLowerCase().includes(cont));
