@@ -445,7 +445,7 @@ function getNbFiltered(){
   if(hosp) rows=rows.filter(r=>(r.customer||'').toLowerCase().includes(hosp));
   if(doc) rows=rows.filter(r=>(r.doctorName||'').toLowerCase().includes(doc));
   if(cont) rows=rows.filter(r=>(r.contactPerson||'').toLowerCase().includes(cont));
-  if(q) rows=rows.filter(r=>(r.contactPerson+' '+r.contactNo+' '+r.doctorName+' '+r.doctorContactNo+' '+r.customer+' '+r.city+' '+r.email+' '+r.lastRemark).toLowerCase().includes(q));
+  if(q) rows=rows.filter(r=>(r.contactPerson+' '+r.contactNo+' '+r.doctorName+' '+r.doctorContactNo+' '+r.customer+' '+r.city+' '+r.email).toLowerCase().includes(q));
   const key=NB_STATE.sortKey, dir=NB_STATE.sortDir==='asc'?1:-1;
   rows=rows.slice().sort((a,b)=>{
     const av=(a[key]||'').toString().toLowerCase(), bv=(b[key]||'').toString().toLowerCase();
@@ -467,8 +467,7 @@ function renderNotBoughtPanel(){
     {key:'doctorContactNo',label:'Doctor Contact No'},
     {key:'customer',label:'Hospital Name'},
     {key:'city',label:'City'},
-    {key:'email',label:'Email'},
-    {key:'lastRemark',label:'Remarks'}
+    {key:'email',label:'Email'}
   ];
 
   const totalPages=Math.max(1,Math.ceil(filtered.length/NB_STATE.pageSize));
@@ -508,8 +507,7 @@ function exportNotBoughtCsv(){
     {key:'doctorContactNo',label:'Doctor Contact No'},
     {key:'customer',label:'Hospital Name'},
     {key:'city',label:'City'},
-    {key:'email',label:'Email'},
-    {key:'lastRemark',label:'Remarks'}
+    {key:'email',label:'Email'}
   ];
   const csvEsc=v=>{
     const s=String(v==null?'':v).replace(/"/g,'""');
