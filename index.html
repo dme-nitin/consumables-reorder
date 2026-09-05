@@ -97,10 +97,15 @@
   .nb-multiselect{position:relative}
   .nb-multiselect-btn{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:#fff;color:var(--ink);min-width:150px;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer}
   .nb-multiselect-btn:hover{border-color:var(--teal)}
-  .nb-multiselect-panel{position:absolute;top:calc(100% + 4px);left:0;z-index:50;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:220px;max-height:280px;overflow-y:auto;padding:6px 0}
-  .nb-multiselect-panel label{display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:13px;cursor:pointer;white-space:nowrap}
+  .nb-multiselect-panel{position:absolute;top:calc(100% + 4px);left:0;z-index:50;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:260px;max-height:280px;overflow-y:auto;overflow-x:hidden;padding:6px 0}
+  .nb-multiselect-panel label{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 12px;font-size:13px;cursor:pointer}
+  .nb-multiselect-panel label span{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nb-multiselect-panel label input{flex:0 0 auto;margin:0}
   .nb-multiselect-panel label:hover{background:#f5f8fb}
   .nb-multiselect-panel .nb-ms-divider{border-top:1px solid var(--line);margin:4px 0}
+  .nb-filters-col{display:flex;flex-direction:column;gap:6px;align-items:stretch}
+  .nb-print-btn{background:#eef3f8;color:var(--navy);border:none;border-radius:7px;padding:7px 10px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+  .nb-print-btn:hover{opacity:.85}
   .nb-table-wrap{flex:1;overflow:auto;padding:14px 22px}
   .nb-table-wrap table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .nb-table-wrap th{background:#eef3f8;text-align:left;padding:10px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
@@ -192,7 +197,13 @@
     <input id="nbHospital" placeholder="Hospital Name" oninput="renderNotBoughtPanel()">
     <input id="nbDoctor" placeholder="Doctor Name" oninput="renderNotBoughtPanel()">
     <input id="nbContact" placeholder="Contact Person" oninput="renderNotBoughtPanel()">
-    <button class="nb-btn nb-btn-reset" onclick="resetNbFilters()">Reset</button>
+    <div class="nb-filters-col">
+      <button class="nb-btn nb-btn-reset" onclick="resetNbFilters()">Reset</button>
+      <button class="nb-print-btn" onclick="printNbTable()" title="Print">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+        Print
+      </button>
+    </div>
   </div>
   <div class="nb-table-wrap" id="nbTableWrap"></div>
   <div class="nb-pagination" id="nbPagination"></div>
@@ -472,10 +483,10 @@ function refreshNbCityOptions(){
 function renderCityPanel(){
   const panel=document.getElementById('nbCityPanel');
   const allChecked=NB_STATE.selectedCities.size===0;
-  let html=`<label><input type="checkbox" ${allChecked?'checked':''} onchange="onCityAllToggle(this.checked)"> All Cities</label><div class="nb-ms-divider"></div>`;
+  let html=`<label><span>All Cities</span><input type="checkbox" ${allChecked?'checked':''} onchange="onCityAllToggle(this.checked)"></label><div class="nb-ms-divider"></div>`;
   html+=NB_STATE.availableCities.map(c=>{
     const checked=NB_STATE.selectedCities.has(c);
-    return `<label><input type="checkbox" ${checked?'checked':''} onchange="onCityCheckToggle('${c.replace(/'/g,"\\'")}',this.checked)"> ${esc(c)}</label>`;
+    return `<label><span>${esc(c)}</span><input type="checkbox" ${checked?'checked':''} onchange="onCityCheckToggle('${c.replace(/'/g,"\\'")}',this.checked)"></label>`;
   }).join('');
   panel.innerHTML=html;
 }
@@ -648,6 +659,51 @@ function exportNotBoughtCsv(){
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+function printNbTable(){
+  const rows=getNbFiltered();
+  const cols=[
+    {key:'contactPerson',label:'Contact Person'},
+    {key:'contactNo',label:'Contact No'},
+    {key:'doctorName',label:'Doctor Name'},
+    {key:'doctorContactNo',label:'Doctor Contact No'},
+    {key:'customer',label:'Hospital Name'},
+    {key:'city',label:'City'},
+    {key:'email',label:'Email'},
+    {key:'lastSaleDate',label:'Last Order Date'},
+    {key:'lastOrderQty',label:'Last Order Qty'}
+  ];
+  const title=(NB_STATE.product||'')+' - Customers Not Bought in Last 6 Months and More';
+  let rowsHtml='';
+  if(!rows.length){
+    rowsHtml=`<tr><td colspan="${cols.length+1}" style="text-align:center;padding:20px;color:#666">No matching customers.</td></tr>`;
+  }else{
+    rows.forEach((r,idx)=>{
+      rowsHtml+='<tr><td>'+(idx+1)+'</td>'+cols.map(c=>`<td>${esc(r[c.key]||'-')}</td>`).join('')+'</tr>';
+    });
+  }
+  const headHtml='<th>S.No</th>'+cols.map(c=>`<th>${esc(c.label)}</th>`).join('');
+  const printedOn=new Date().toLocaleString('en-IN');
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
+  <style>
+    @page{size:A4 landscape;margin:10mm}
+    body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:0}
+    h1{font-size:15px;margin:0 0 2px}
+    .meta{font-size:10px;color:#555;margin:0 0 10px}
+    table{width:100%;border-collapse:collapse;font-size:9px}
+    th,td{border:1px solid #999;padding:4px 5px;text-align:left;vertical-align:top;word-break:break-word}
+    th{background:#eef3f8}
+    tr{page-break-inside:avoid}
+  </style></head><body>
+  <h1>${esc(title)}</h1>
+  <div class="meta">${rows.length} customer(s) &middot; Printed on ${esc(printedOn)}</div>
+  <table><thead><tr>${headHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>
+  </body></html>`);
+  win.document.close();
+  win.onload=function(){ win.focus(); win.print(); };
+  setTimeout(function(){ try{ win.focus(); win.print(); }catch(e){} },300);
 }
 
 async function confirmSend(){const r=ROWS[emailIdx];
