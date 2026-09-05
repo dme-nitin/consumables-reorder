@@ -467,7 +467,8 @@ function renderNotBoughtPanel(){
     {key:'doctorContactNo',label:'Doctor Contact No'},
     {key:'customer',label:'Hospital Name'},
     {key:'city',label:'City'},
-    {key:'email',label:'Email'}
+    {key:'email',label:'Email'},
+    {key:'lastSaleDate',label:'Last Order Date'}
   ];
 
   const totalPages=Math.max(1,Math.ceil(filtered.length/NB_STATE.pageSize));
@@ -475,17 +476,17 @@ function renderNotBoughtPanel(){
   const startIdx=(NB_STATE.page-1)*NB_STATE.pageSize;
   const pageRows=filtered.slice(startIdx,startIdx+NB_STATE.pageSize);
 
-  let html='<table><thead><tr>';
+  let html='<table><thead><tr><th>S.No</th>';
   cols.forEach(c=>{
     const arrow=NB_STATE.sortKey===c.key?(NB_STATE.sortDir==='asc'?'&#9650;':'&#9660;'):'';
     html+=`<th onclick="nbSortBy('${c.key}')">${esc(c.label)}<span class="nb-sort-arrow">${arrow}</span></th>`;
   });
   html+='</tr></thead><tbody>';
   if(!pageRows.length){
-    html+=`<tr><td colspan="${cols.length}" style="text-align:center;color:var(--muted);padding:30px">No matching customers.</td></tr>`;
+    html+=`<tr><td colspan="${cols.length+1}" style="text-align:center;color:var(--muted);padding:30px">No matching customers.</td></tr>`;
   }else{
-    pageRows.forEach(r=>{
-      html+='<tr>'+cols.map(c=>`<td>${esc(r[c.key]||'-')}</td>`).join('')+'</tr>';
+    pageRows.forEach((r,idx)=>{
+      html+='<tr><td>'+(startIdx+idx+1)+'</td>'+cols.map(c=>`<td>${esc(r[c.key]||'-')}</td>`).join('')+'</tr>';
     });
   }
   html+='</tbody></table>';
@@ -507,14 +508,15 @@ function exportNotBoughtCsv(){
     {key:'doctorContactNo',label:'Doctor Contact No'},
     {key:'customer',label:'Hospital Name'},
     {key:'city',label:'City'},
-    {key:'email',label:'Email'}
+    {key:'email',label:'Email'},
+    {key:'lastSaleDate',label:'Last Order Date'}
   ];
   const csvEsc=v=>{
     const s=String(v==null?'':v).replace(/"/g,'""');
     return /[",\n]/.test(s) ? '"'+s+'"' : s;
   };
-  let csv=cols.map(c=>csvEsc(c.label)).join(',')+'\r\n';
-  rows.forEach(r=>{csv+=cols.map(c=>csvEsc(r[c.key])).join(',')+'\r\n';});
+  let csv=['S.No',...cols.map(c=>c.label)].map(csvEsc).join(',')+'\r\n';
+  rows.forEach((r,idx)=>{csv+=[idx+1,...cols.map(c=>r[c.key])].map(csvEsc).join(',')+'\r\n';});
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
